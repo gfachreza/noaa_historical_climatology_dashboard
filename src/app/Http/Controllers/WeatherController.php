@@ -15,16 +15,17 @@ class WeatherController extends Controller
     }
 
     /* ===========================
-       1. META — ALL COUNTRIES
+       1. META — ALL COUNTRIES (FAST)
     =========================== */
     public function countries()
     {
         $sql = "
-            SELECT DISTINCT country_code, country_name
-            FROM fact_noaa_country_daily
+            SELECT country_code, country_name
+            FROM dim_country_use
             ORDER BY country_name ASC
             FORMAT JSON
         ";
+
         return $this->ch->query($sql);
     }
 
@@ -35,9 +36,9 @@ class WeatherController extends Controller
     {
         $sql = "
             SELECT 
-                min(date) AS min_date,
-                max(date) AS max_date
-            FROM fact_noaa_country_daily
+                minMerge(min_date_state) AS min_date,
+                maxMerge(max_date_state) AS max_date
+            FROM dim_date_range
             FORMAT JSON
         ";
 
@@ -50,34 +51,35 @@ class WeatherController extends Controller
     }
 
     /* ===========================
-       3. MAIN WEATHER ENDPOINT
+       3. MAIN WEATHER QUERY
     =========================== */
     public function index(Request $request)
     {
-        // PARAMETER FIX — gunakan start_date/end_date
+        // FIX params
         $start = $request->query('start_date') ?? $request->query('start');
         $end   = $request->query('end_date')   ?? $request->query('end');
 
-        // VALIDASI SIMPLE
         if (!$start || !$end) {
             return response()->json([
                 "error" => "start_date and end_date are required"
             ], 400);
         }
 
-        // FIX param countries
+        // Countries param
         $countries = $request->query('countries', []);
 
         if (!is_array($countries)) {
             $countries = explode(",", $countries);
         }
 
-        $countries = array_filter($countries); // remove empty
+        $countries = array_filter($countries);
 
-        // Jika tidak ada country → ambil semua
+        // If empty → get from dim_country_use (FAST)
         if (empty($countries)) {
             $countries = array_column(
-                $this->ch->query("SELECT DISTINCT country_code FROM fact_noaa_country_daily"),
+                $this->ch->query("
+                    SELECT country_code FROM dim_country_use
+                "),
                 "country_code"
             );
         }
@@ -97,7 +99,7 @@ class WeatherController extends Controller
     }
 
     /* ===========================
-       4. OPTIONAL COMPARE
+       4. COMPARE ENDPOINT
     =========================== */
     public function compare(Request $request)
     {

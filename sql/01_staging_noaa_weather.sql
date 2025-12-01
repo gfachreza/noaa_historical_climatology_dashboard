@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS staging_noaa_weather
 (
     station_id String,
-    date Date,
+    date String,
     element String,
     value Float64,
     mflag String,

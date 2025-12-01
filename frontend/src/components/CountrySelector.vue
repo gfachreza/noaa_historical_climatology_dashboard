@@ -1,22 +1,33 @@
 <template>
-  <div class="country-selector">
+  <div class="country-selector" :class="{ dark: isDark }">
     <div class="dropdown" @click="toggleDropdown">
       {{ selectedLabels }}
       <span class="arrow">▼</span>
     </div>
 
     <div class="dropdown-menu" v-if="open">
+
+      <!-- Search -->
+      <input
+        v-model="search"
+        type="text"
+        placeholder="Search country..."
+        class="search-box"
+        @click.stop
+      />
+
       <!-- Select All -->
       <label class="item all">
         <input type="checkbox" v-model="selectAll" @change="toggleAll">
         <strong>Select All Countries</strong>
       </label>
-      <hr>
 
-      <!-- Countries -->
+      <hr />
+
+      <!-- Filtered Countries -->
       <label
         class="item"
-        v-for="c in countries"
+        v-for="c in filteredCountries"
         :key="c.country_code"
       >
         <input
@@ -32,17 +43,22 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed } from "vue";
 
 const props = defineProps({
-  countries: { type: Array, required: true }
+  countries: { type: Array, required: true },
+  dark: { type: Boolean, default: false }
 });
 
 const emit = defineEmits(["update:selected"]);
 
 const open = ref(false);
-const selectedLocal = ref([]);     // <-- TIDAK ADA SELECT ALL DI SINI
+const search = ref("");
+
+const selectedLocal = ref([]);
 const selectAll = ref(false);
+
+const isDark = computed(() => props.dark);
 
 // buka tutup dropdown
 function toggleDropdown() {
@@ -55,21 +71,21 @@ const selectedLabels = computed(() => {
   return `${selectedLocal.value.length} selected`;
 });
 
-// Klik checkbox individual
-function updateSelection() {
-  // Kalau uncheck 1 → selectAll = false
-  if (selectedLocal.value.length !== props.countries.length) {
-    selectAll.value = false;
-  }
-  // Kalau semua sudah ke-check 1 per 1 → selectAll = true
-  if (selectedLocal.value.length === props.countries.length) {
-    selectAll.value = true;
-  }
+// Filtering
+const filteredCountries = computed(() => {
+  if (!search.value) return props.countries;
+  return props.countries.filter(c =>
+    c.country_name.toLowerCase().includes(search.value.toLowerCase())
+  );
+});
 
+// update select
+function updateSelection() {
+  selectAll.value = selectedLocal.value.length === props.countries.length;
   emit("update:selected", selectedLocal.value);
 }
 
-// Klik "Select All"
+// Select All
 function toggleAll() {
   if (selectAll.value) {
     selectedLocal.value = props.countries.map(c => c.country_code);
@@ -92,6 +108,13 @@ function toggleAll() {
   padding: 6px;
   cursor: pointer;
   background: white;
+  color: #222;
+}
+
+.country-selector.dark .dropdown {
+  background: #2a2a2a;
+  border-color: #555;
+  color: #eee;
 }
 
 .arrow {
@@ -101,12 +124,33 @@ function toggleAll() {
 .dropdown-menu {
   position: absolute;
   width: 100%;
-  max-height: 250px;
+  max-height: 260px;
   overflow-y: auto;
   border: 1px solid #aaa;
   background: white;
   z-index: 9999;
   padding: 5px;
+  color: #222;
+}
+
+.country-selector.dark .dropdown-menu {
+  background: #2b2b2b;
+  border-color: #555;
+  color: #eee;
+}
+
+.search-box {
+  width: 100%;
+  padding: 6px;
+  margin-bottom: 6px;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
+}
+
+.country-selector.dark .search-box {
+  background: #1f1f1f;
+  border-color: #666;
+  color: #eee;
 }
 
 .item {
@@ -117,7 +161,11 @@ function toggleAll() {
 }
 
 .all {
-  background: #f1f1f1;
+  background: #f3f3f3;
   padding: 4px;
+}
+
+.country-selector.dark .all {
+  background: #3a3a3a;
 }
 </style>

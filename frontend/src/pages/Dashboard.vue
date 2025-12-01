@@ -24,6 +24,8 @@ const maxDate = ref("");
 
 const labels = ref([]);
 
+const loading = ref(false);
+
 const charts = ref([
   { key: "avg_temp", label: "Average Temp", datasets: [] },
   { key: "min_temp", label: "Min Temp", datasets: [] },
@@ -55,23 +57,29 @@ async function loadData() {
   const selected = selectedCountries.value;
   if (selected.length === 0) return;
 
-  const data = await fetchWeather(start.value, end.value, selected);
-  labels.value = [...new Set(data.map(d => d.date))];
+  loading.value = true;
 
-  const nameMap = {};
-  countries.value.forEach(c => (nameMap[c.country_code] = c.country_name));
+  try {
+    const data = await fetchWeather(start.value, end.value, selected);
+    labels.value = [...new Set(data.map(d => d.date))];
 
-  charts.value.forEach(chart => {
-    chart.datasets = selected.map((code, idx) => {
-      const rows = data.filter(r => r.country_code === code);
-      return {
-        label: nameMap[code] || code,
-        borderColor: `hsl(${(idx * 50) % 360}, 70%, 50%)`,
-        data: rows.map(r => r[chart.key] ?? 0),
-        tension: 0.25
-      };
+    const nameMap = {};
+    countries.value.forEach(c => (nameMap[c.country_code] = c.country_name));
+
+    charts.value.forEach(chart => {
+      chart.datasets = selected.map((code, idx) => {
+        const rows = data.filter(r => r.country_code === code);
+        return {
+          label: nameMap[code] || code,
+          borderColor: `hsl(${(idx * 50) % 360}, 70%, 50%)`,
+          data: rows.map(r => r[chart.key] ?? 0),
+          tension: 0.25
+        };
+      });
     });
-  });
+  } finally {
+    loading.value = false;
+  }
 }
 </script>
 
@@ -105,7 +113,10 @@ async function loadData() {
         @update:selected="selectedCountries = $event"
       />
 
-      <button class="submitbtn" @click="loadData">Submit</button>
+      <button class="submitbtn" @click="loadData" :disabled="loading">
+        <span v-if="loading">⏳ Loading...</span>
+        <span v-else>Submit</span>
+      </button>
     </div>
 
     <!-- CHARTS -->
@@ -135,7 +146,15 @@ async function loadData() {
 }
 
 .controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;   /* Responsif */
   margin-bottom: 20px;
+}
+
+.controls > * {
+  flex-shrink: 0;   /* Biar tidak gepeng */
 }
 
 .darkbtn,
@@ -145,6 +164,14 @@ async function loadData() {
   border: 1px solid #bbb;
   cursor: pointer;
   margin-left: 10px;
+}
+
+.submitbtn:disabled {
+  background: #ddd;
+  color: #888;
+  cursor: not-allowed;
+  border-color: #aaa;
+  opacity: 0.7;
 }
 
 .grid {
